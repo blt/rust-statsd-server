@@ -15,7 +15,7 @@ pub fn process(buckets: &mut Buckets) {
     let mut timer_data = HashMap::new();
 
     // Add the various derived values for timers.
-    for (key, values) in buckets.timers().iter() {
+    for (key, values) in buckets.timers() {
         let mut v = values.clone();
         v.sort_by(|a, b| a.partial_cmp(b).unwrap());
 

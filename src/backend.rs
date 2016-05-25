@@ -1,31 +1,37 @@
 use buckets::Buckets;
 use backends::console;
-use backends::graphite;
+use backends::wavefront;
+use backends::librato;
 
-/// Defines the interface that backends use to publish
-/// metrics to their storage system.
+/// A 'backend' is a sink for metrics.
 pub trait Backend {
-    /// This method should flush the current data to the backend.
-    ///
-    /// Called on server `flush` events, which occur on a timer
-    /// (every 10 seconds by default).
-    fn flush_buckets(&mut self, buckets: &Buckets) -> ();
+    fn flush(&mut self, buckets: &Buckets) -> ();
 }
 
 
 /// Creates the collection of backends based on the paraemeters
 ///
 pub fn factory(console: &bool,
-               graphite: &bool,
-               graphite_host: &str,
-               graphite_port: &u16)
+               wavefront: &bool,
+               librato: &bool,
+               metric_source: &str,
+               wavefront_host: &str,
+               wavefront_port: &u16,
+               librato_username: &str,
+               librato_token: &str)
                -> Box<[Box<Backend>]> {
-    let mut backends: Vec<Box<Backend>> = Vec::with_capacity(2);
+    let mut backends: Vec<Box<Backend>> = Vec::with_capacity(3);
     if *console {
         backends.push(Box::new(console::Console::new()));
     }
-    if *graphite {
-        backends.push(Box::new(graphite::Graphite::new(graphite_host, *graphite_port)));
+    if *wavefront {
+        backends.push(Box::new(wavefront::Wavefront::new(wavefront_host,
+                                                         *wavefront_port,
+                                                         metric_source)));
+    }
+    if *librato {
+        backends.push(Box::new(librato::Librato::new(librato_username, librato_token,
+                                                     metric_source)));
     }
     backends.into_boxed_slice()
 }
@@ -36,20 +42,70 @@ mod test {
     use super::*;
 
     #[test]
-    fn factory_makes_graphite() {
-        let backends = factory(&false, &true, "127.0.0.1", &2300);
+    fn factory_makes_wavefront() {
+        let backends = factory(&false,
+                               &false,
+                               &true,
+                               &false,
+                               "127.0.0.1",
+                               &2300,
+                               "127.0.0.1",
+                               &2878,
+                               "src",
+                               "username",
+                               "token",
+                               "src");
+        assert_eq!(1, backends.len());
+    }
+
+    #[test]
+    fn factory_makes_librato() {
+        let backends = factory(&false,
+                               &false,
+                               &false,
+                               &true,
+                               "127.0.0.1",
+                               &2300,
+                               "127.0.0.1",
+                               &2878,
+                               "src",
+                               "username",
+                               "token",
+                               "src");
         assert_eq!(1, backends.len());
     }
 
     #[test]
     fn factory_makes_console() {
-        let backends = factory(&true, &false, "127.0.0.1", &2300);
+        let backends = factory(&true,
+                               &false,
+                               &false,
+                               &false,
+                               "127.0.0.1",
+                               &2300,
+                               "127.0.0.1",
+                               &2878,
+                               "src",
+                               "username",
+                               "token",
+                               "src");
         assert_eq!(1, backends.len());
     }
 
     #[test]
-    fn factory_makes_both() {
-        let backends = factory(&true, &true, "127.0.0.1", &2300);
-        assert_eq!(2, backends.len());
+    fn factory_makes_all() {
+        let backends = factory(&true,
+                               &true,
+                               &true,
+                               &true,
+                               "127.0.0.1",
+                               &2300,
+                               "127.0.0.1",
+                               &2878,
+                               "src",
+                               "username",
+                               "token",
+                               "src");
+        assert_eq!(4, backends.len());
     }
 }

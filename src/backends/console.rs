@@ -26,7 +26,7 @@ fn fmt_line(key: &str, value: &f64) {
 
 
 impl Backend for Console {
-    fn flush_buckets(&mut self, buckets: &Buckets) {
+    fn flush(&mut self, buckets: &Buckets) {
         let now = time::get_time();
         println!("Flushing metrics: {}", time::at(now).rfc822().to_string());
 
@@ -34,22 +34,31 @@ impl Backend for Console {
         println!("  total_messages: {}", buckets.total_messages());
 
         println!("  counters:");
-        for (key, value) in buckets.counters().iter() {
+        for (key, value) in buckets.counters() {
             fmt_line(&key, &value);
         }
 
         println!("  gauges:");
-        for (key, value) in buckets.gauges().iter() {
+        for (key, value) in buckets.gauges() {
             fmt_line(&key, &value);
         }
 
+
+        println!("  histograms:");
+        for (key, value) in buckets.histograms() {
+            // println!("    {}: {} 50th", key, value.percentile(50.0));
+            // println!("    {}: {} 90th", key, value.percentile(90.0));
+            // println!("    {}: {} 99th", key, value.percentile(99.0));
+            // println!("    {}: {} 99.9th", key, value.percentile(99.9));
+        }
+
         println!("  timers:");
-        for (key, values) in buckets.timers().iter() {
+        for (key, values) in buckets.timers() {
             println!("    {}: {:?}", key, values);
         }
 
         println!("  timer_data:");
-        for (key, values) in buckets.timer_data().iter() {
+        for (key, values) in buckets.timer_data() {
             println!("    {}: {:?}", key, values);
         }
     }

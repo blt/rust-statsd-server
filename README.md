@@ -1,27 +1,7 @@
-# Rust Statsd Server
+# cernan - telemetry aggregation and shipping, last up the ladder
 
-[![Build Status](https://travis-ci.org/markstory/rust-statsd-server.svg?branch=master)](https://travis-ci.org/markstory/rust-statsd-server)
-
-This is a statsd server implementation written in rust. It aims to be as
-compatible as possible with etsy/statsd.
-
-# Building the application
-
-1. Clone the repository.
-2. Run `make install`.
-3. The generated binary will be in `dist/statsd`.
-
-# Running tests
-
-After cloning the repository you can run either the unit tests, and or the
-integration tests. The integration tests require python 2.7 and that port 8125
-be free on your system.
-
-```
-make test
-```
-
-Will run both the unit and integration tests.
+`cernan` is a telemetry and logging aggregation server. It exposes a statsd
+interface as of this writing. There are further ambitions.
 
 # Usage
 
@@ -46,34 +26,51 @@ track how long statsd is spending generating derived metrics.
 ## Enabling the console or graphite backends
 
 By default no backends are enabled. In this mode the statsd server doesn't do
-that much. To enable one or both backends use the CLI flags:
+that much. To backends use the CLI flags:
 
 ```
 --console             Enable the console backend.
---graphite            Enable the graphite backend.
+--librato             Enable the librato backend.
+--wavefront           Enable the wavefront backend.
 ```
 
-The graphite backend has additional options for defining where graphite/carbon
-runs:
+For backends which support it `cernan` can report the source of the metric. In
+AWS you might choose to set this to the instance ID. You may set the source like
+so:
 
 ```
---graphite-port=<p>   The port graphite/carbon is running on. [default: 2003].
---graphite-host=<p>   The host graphite/carbon is running on. [default: 127.0.0.1]
+--metric-source=<p>     The source that will be reported to supporting backends. [default: cernan]
+```
+
+The librato backend has additional options for defining authentication:
+
+```
+--librato-username=<p>  The librato username for authentication. [default: ceran].
+--librato-token=<p>     The librato token for authentication. [default: cernan_totally_valid_token].
+```
+
+The wavefront backend has additional options for defining where the wavefront
+proxy runs:
+
+```
+--wavefront-port=<p>    The port wavefront proxy is running on. [default: 2878].
+--wavefront-host=<p>    The host wavefront proxy is running on. [default: 127.0.0.1].
 ```
 
 ## Internal metrics
 
 This server tracks a few internal metrics:
 
-* `statsd.bad_messages` The number of invalid metrics that have been sent since
+* `cernan.bad_messages` The number of invalid metrics that have been sent since
   the last flush.
-* `statsd.total_messages` The number of messages received including invalid
+* `cernan.total_messages` The number of messages received including invalid
   messages.
-* `statsd.processing_time` How many ms were spent calculating derived metrics
+* `cernan.processing_time` How many ms were spent calculating derived metrics
   in the current flush cycle.
-
 
 ## Prior Art
 
-I took a bunch of inspiration in how to implement and structure this
-implementation from [erik/rust-statsd](https://github.com/erik/rust-statsd).
+The inspiration for the intial `cernan` work leans very heavily on Mark Story's
+[rust-stats-server](https://github.com/markstory/rust-statsd-server). I
+originally thought I might just adapt that project but ambitions grew. Thank you
+Mark!

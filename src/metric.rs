@@ -8,12 +8,14 @@ pub enum MetricKind {
     Counter(f64), // sample rate
     Gauge,
     Timer,
+    Histogram,
 }
 
 impl fmt::Debug for MetricKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             MetricKind::Gauge => write!(f, "Gauge"),
+            MetricKind::Histogram => write!(f, "Histogram"),
             MetricKind::Timer => write!(f, "Timer"),
             MetricKind::Counter(s) => write!(f, "Counter(s={})", s),
         }
@@ -113,6 +115,7 @@ impl Metric {
         let kind = match &*kind_name {
             "ms" => MetricKind::Timer,
             "g" => MetricKind::Gauge,
+            "h" => MetricKind::Histogram,
             "c" => {
                 let rate: f64 = match line[idx..].find('@') {
                     Some(pos) => {
@@ -141,6 +144,7 @@ mod tests {
     #[test]
     fn test_metric_kind_debug_fmt() {
         assert_eq!("Gauge", format!("{:?}", MetricKind::Gauge));
+        assert_eq!("Histogram", format!("{:?}", MetricKind::Histogram));
         assert_eq!("Timer", format!("{:?}", MetricKind::Timer));
         assert_eq!("Counter(s=6)", format!("{:?}", MetricKind::Counter(6.0)));
     }
@@ -182,6 +186,10 @@ mod tests {
                      Metric::new("test", 18.123, MetricKind::Gauge));
         valid.insert("test:18.123|g",
                      Metric::new("test", 18.123, MetricKind::Gauge));
+        valid.insert("hist_test:18.123|h",
+                     Metric::new("hist_test", 18.123, MetricKind::Histogram));
+        valid.insert("hist_test:18.123|h",
+                     Metric::new("hist_test", 18.123, MetricKind::Histogram));
         valid.insert("thing.total:12|c",
                      Metric::new("thing.total", 12.0, MetricKind::Counter(1.0)));
         valid.insert("thing.total:5.6|c|@123",
@@ -195,7 +203,7 @@ mod tests {
             assert_eq!(expected.name, actual[0].name);
             assert_eq!(expected.value, actual[0].value);
 
-            // TODO this is stupid, there must be a better way.
+            // TODO this is a silly way to test
             assert_eq!(format!("{:?}", expected.kind),
                        format!("{:?}", actual[0].kind));
         }

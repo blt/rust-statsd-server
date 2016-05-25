@@ -1,24 +1,26 @@
 extern crate docopt;
+extern crate histogram;
+extern crate hyper;
+extern crate mime;
 extern crate rustc_serialize;
 extern crate time;
 
-use std::thread;
-use std::sync::mpsc::channel;
-use std::str;
 use backend::Backend;
+use std::str;
+use std::sync::mpsc::channel;
+use std::thread;
 
-
-// Local module imports.
-mod metric;
-mod cli;
-mod server;
-mod buckets;
 mod backend;
-mod management;
+mod buckets;
+mod cli;
+mod metric;
 mod metric_processor;
+mod server;
+mod hist;
 mod backends {
     pub mod console;
-    pub mod graphite;
+    pub mod librato;
+    pub mod wavefront;
 }
 
 
@@ -26,35 +28,27 @@ fn main() {
     let args = cli::parse_args();
 
     let mut backends = backend::factory(&args.flag_console,
-                                        &args.flag_graphite,
-                                        &args.flag_graphite_host,
-                                        &args.flag_graphite_port);
+                                        &args.flag_wavefront,
+                                        &args.flag_librato,
+                                        &args.flag_metric_source,
+                                        &args.flag_wavefront_host,
+                                        &args.flag_wavefront_port,
+                                        &args.flag_librato_username,
+                                        &args.flag_librato_token);
 
     let (event_send, event_recv) = channel();
     let flush_send = event_send.clone();
     let udp_send = event_send.clone();
-    let tcp_send = event_send.clone();
 
     let mut buckets = buckets::Buckets::new();
 
-    println!("Starting statsd - {}",
+    println!("Starting cernan - {}",
              time::at(buckets.start_time()).rfc822().to_string());
     println!("Data server on 0.0.0.0:{}", args.flag_port);
-    println!("Admin server on {}:{}",
-             args.flag_admin_host,
-             args.flag_admin_port);
 
-    // Setup the UDP server which publishes events to the event channel
     let port = args.flag_port;
     thread::spawn(move || {
         server::udp_server(udp_send, port);
-    });
-
-    // Setup the TCP server for administration
-    let tcp_port = args.flag_admin_port;
-    let tcp_host = args.flag_admin_host;
-    thread::spawn(move || {
-        server::admin_server(tcp_send, tcp_port, &tcp_host);
     });
 
     // Run the timer that flushes metrics to the backends.
@@ -63,7 +57,6 @@ fn main() {
         server::flush_timer_loop(flush_send, flush_interval);
     });
 
-    // Main event loop.
     loop {
         let result = match event_recv.recv() {
             Ok(res) => res,
@@ -73,14 +66,15 @@ fn main() {
         match result {
             server::Event::TimerFlush => {
                 buckets.process();
+                // TODO improve this, limit here will be backend stalling and
+                // holding up all others
                 for backend in backends.iter_mut() {
-                    backend.flush_buckets(&buckets);
+                    backend.flush(&buckets);
                 }
                 buckets.reset();
             }
 
             server::Event::UdpMessage(buf) => {
-                // Create the metric and push it into the buckets.
                 str::from_utf8(&buf)
                     .map(|val| {
                         metric::Metric::parse(&val)
@@ -97,10 +91,6 @@ fn main() {
                             .ok();
                     })
                     .ok();
-            }
-
-            server::Event::TcpMessage(stream) => {
-                management::exec(stream, &mut buckets);
             }
         }
     }

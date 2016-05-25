@@ -6,32 +6,36 @@
 use docopt::Docopt;
 
 static USAGE: &'static str = "
-Usage: statsd [options]
-       statsd --help
+Usage: cernan [options]
+       cernan --help
 
 Options:
-  -h, --help            Print help information.
-  -p, --port=<p>        The UDP port to bind to [default: 8125].
-  --flush-interval=<p>  How frequently to flush metrics to the backends in seconds. [default: 10].
-  --console             Enable the console backend.
-  --graphite            Enable the graphite backend.
-  --graphite-port=<p>   The port graphite/carbon is running on. [default: 2003].
-  --graphite-host=<p>   The host graphite/carbon is running on. [default: 127.0.0.1]
-  --admin-host=<p>      The host to bind the management server on. [default: 127.0.0.1]
-  --admin-port=<p>      The port to bind the management server to. [default: 8126]
+  -h, --help              Print help information.
+  -p, --port=<p>          The UDP port to bind to [default: 8125].
+  --flush-interval=<p>    How frequently to flush metrics to the backends in seconds. [default: 10].
+  --console               Enable the console backend.
+  --wavefront             Enable the wavefront backend.
+  --librato               Enable the librato backend.
+  --metric-source=<p>     The source that will be reported to supporting backends. [default: cernan]
+  --wavefront-port=<p>    The port wavefront proxy is running on. [default: 2878].
+  --wavefront-host=<p>    The host wavefront proxy is running on. [default: 127.0.0.1].
+  --librato-username=<p>  The librato username for authentication. [default: statsd].
+  --librato-token=<p>     The librato token for authentication. [default: statsd].
 ";
 
 /// Holds the parsed command line arguments
 #[derive(RustcDecodable, Debug)]
 pub struct Args {
     pub flag_port: u16,
-    pub flag_admin_port: u16,
-    pub flag_admin_host: String,
     pub flag_flush_interval: u64,
     pub flag_console: bool,
-    pub flag_graphite: bool,
-    pub flag_graphite_port: u16,
-    pub flag_graphite_host: String,
+    pub flag_wavefront: bool,
+    pub flag_librato: bool,
+    pub flag_metric_source: String,
+    pub flag_wavefront_port: u16,
+    pub flag_wavefront_host: String,
+    pub flag_librato_username: String,
+    pub flag_librato_token: String,
     pub flag_help: bool,
 }
 

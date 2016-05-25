@@ -7,13 +7,15 @@ use std::collections::HashMap;
 use super::metric::{Metric, MetricKind};
 use super::metric_processor;
 use time;
-
+use hist::Histogram;
+use std::collections::hash_map::Iter;
 
 /// Buckets stores all metrics until they are flushed.
 pub struct Buckets {
     counters: HashMap<String, f64>,
     gauges: HashMap<String, f64>,
     timers: HashMap<String, Vec<f64>>,
+    histograms: HashMap<String, Histogram>,
 
     timer_data: HashMap<String, f64>,
 
@@ -38,6 +40,7 @@ impl Buckets {
             counters: HashMap::new(),
             gauges: HashMap::new(),
             timers: HashMap::new(),
+            histograms: HashMap::new(),
             timer_data: HashMap::new(),
             bad_messages: 0,
             total_messages: 0,
@@ -69,6 +72,10 @@ impl Buckets {
             MetricKind::Gauge => {
                 self.gauges.insert(name, value.value);
             }
+            MetricKind::Histogram => {
+                let hist = self.histograms.entry(name).or_insert(Histogram::new());
+                let _ = (*hist).increment(value.value);
+            }
             MetricKind::Timer => {
                 let slot = self.timers.entry(name).or_insert(Vec::new());
                 slot.push(value.value);
@@ -91,23 +98,28 @@ impl Buckets {
     }
 
     /// Get the counters as a borrowed reference.
-    pub fn counters(&self) -> &HashMap<String, f64> {
-        &self.counters
+    pub fn counters(&self) -> Iter<String, f64> {
+        self.counters.iter()
     }
 
     /// Get the gauges as a borrowed reference.
-    pub fn gauges(&self) -> &HashMap<String, f64> {
-        &self.gauges
+    pub fn gauges(&self) -> Iter<String, f64> {
+        self.gauges.iter()
+    }
+
+    /// Get the histograms as a borrowed reference.
+    pub fn histograms(&self) -> Iter<String, Histogram> {
+        self.histograms.iter()
     }
 
     /// Get the timers as a borrowed reference.
-    pub fn timers(&self) -> &HashMap<String, Vec<f64>> {
-        &self.timers
+    pub fn timers(&self) -> Iter<String, Vec<f64>> {
+        self.timers.iter()
     }
 
     /// Get the calculated timer data as a borrowed reference.
-    pub fn timer_data(&self) -> &HashMap<String, f64> {
-        &self.timer_data
+    pub fn timer_data(&self) -> Iter<String, f64> {
+        self.timer_data.iter()
     }
 
     /// Replace the calculated timer data with a new hash map.
@@ -172,8 +184,8 @@ mod test {
         let mut buckets = Buckets::new();
         // duff value to ensure it changes.
         let original = time::strptime("2015-08-03 19:50:12", "%Y-%m-%d %H:%M:%S")
-                           .unwrap()
-                           .to_timespec();
+            .unwrap()
+            .to_timespec();
         buckets.last_message = original;
 
         let metric = Metric::new("some.metric", 1.0, MetricKind::Counter(1.0));
